@@ -2,7 +2,7 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20');
 const mongoose = require('mongoose');
 const keys = require('../config/keys');
-// const HttpsProxyAgent = require('https-proxy-agent');
+const HttpsProxyAgent = require('https-proxy-agent');
 
 const User = mongoose.model('users');
 
@@ -22,19 +22,19 @@ const gStrategy = new GoogleStrategy({
     clientSecret: keys.googleClientSecret,
     callbackURL: '/auth/google/callback',
     proxy: true
-}, (accessToken, refreshToken, profile, done) => {
-    User.findOne({ googleId: profile.id })
-        .then((existingUser) => {
-            if (existingUser) {
-                done(null, existingUser);
-            } else {
-                new User({ googleId: profile.id })
-                    .save()
-                    .then(user => done(null, user));
-            }
-        })
-});
-// const agent = new HttpsProxyAgent(process.env.HTTP_PROXY || 'http://127.0.0.1:9910');
-// gStrategy._oauth2.setAgent(agent);
-
+}, 
+    async (accessToken, refreshToken, profile, done) => {
+        const existingUser  = await User.findOne({ googleId: profile.id });
+        if (existingUser) {
+            done(null, existingUser);
+        } else {
+            const user = await new User({ googleId: profile.id }).save();
+            done(null, user);
+        }
+    }
+);
+if (process.env.NODE_ENV !== 'production') {
+    const agent = new HttpsProxyAgent('http://127.0.0.1:9910');
+    gStrategy._oauth2.setAgent(agent);
+}
 passport.use(gStrategy);
